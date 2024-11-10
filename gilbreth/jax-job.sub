@@ -1,0 +1,39 @@
+#!/bin/bash
+#SBATCH --job-name=jax-train
+#SBATCH --output=slurm-logs/slurm-%j-%x.out
+#SBATCH --mail-type=END,FAIL,TIME_LIMIT
+#SBATCH --mail-user=<USERNAME>@purdue.edu
+
+# ------- load modules -------
+module purge
+module load gcc/9.3.0
+module load cuda/11.7.0
+module load utilities
+module load monitor
+echo "*** Available GPUs: $CUDA_VISIBLE_DEVICES ***"
+
+# ------- resource monitors -------
+# track all GPUs (one monitor per host)
+monitor gpu percent --csv > slurm-logs/slurm-$SLURM_JOB_ID-gpuperc.csv &
+GPU_PID=$!
+# track all CPUs (one monitor per host)
+monitor cpu percent --all-cores > slurm-logs/slurm-$SLURM_JOB_ID-cpuperc.log &
+CPU_PID=$!
+# ------------------------
+
+# reset time
+SECONDS=0
+
+# execute training
+WKSPACE_DIR=$(dirname $(pwd))
+apptainer run --nv -B $WKSPACE_DIR:$WKSPACE_DIR ../apptainer/jax.sif \
+    "cd $WKSPACE_DIR && python jax-nn-train.py --save_plot"
+
+# elapsed time
+echo "**************************************"
+echo "--- Elapsed time: $(($SECONDS / 3600)) hrs, $((($SECONDS / 60) % 60)) min and $(($SECONDS % 60)) sec. ---"
+
+# ------------------------
+# shut down the resource monitors
+kill -s INT $GPU_PID $CPU_PID
+# ------------------------

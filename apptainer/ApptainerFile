@@ -1,0 +1,62 @@
+# This Apptainer recipe sets up a CUDA-enabled environment with JAX
+
+Bootstrap: docker
+From: nvidia/cuda:11.7.1-devel-ubuntu22.04
+
+%setup
+    mkdir -p $APPTAINER_ROOTFS/env-setup
+    mkdir -p $APPTAINER_ROOTFS/root/.conda
+    mkdir -p $APPTAINER_ROOTFS/root/
+    mkdir -p $APPTAINER_ROOTFS/code-dir
+
+%post -c /bin/bash
+    # Set noninteractive mode
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Update and install required packages
+    apt-get update && \
+    apt-get install -y \
+        wget git net-tools vim curl build-essential x11vnc zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev \
+        libreadline-dev libffi-dev libsqlite3-dev libbz2-dev liblzma-dev freeglut3-dev && \
+        # Optional packages for opencv-python (comment if unnecessary)
+        apt-get install -y --no-install-recommends libglib2.0-0 libxrender1 libxext6 libsm6 libgl1-mesa-glx && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+    # Install Miniconda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    bash Miniconda3-latest-Linux-x86_64.sh -b -p /root/miniconda3 && \
+    rm -f Miniconda3-latest-Linux-x86_64.sh
+
+    # Add conda to PATH
+    echo 'export PATH="/root/miniconda3/bin:${PATH}"' >> ~/.bashrc
+    eval "$(/root/miniconda3/bin/conda shell.bash hook)"
+    source /root/miniconda3/etc/profile.d/conda.sh
+    conda init bash
+
+    # Install Python package requirements
+    conda create -n env_jax python=3.9 -y
+    conda activate env_jax
+    pip install --upgrade pip
+    pip install -r /env-setup/requirements.txt
+
+    # Install JAX with CUDA support
+    pip install "jax[cuda12]"
+    pip install jaxlib==0.4.29+cuda12.cudnn91 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+%environment
+    # Add conda to PATH and activate environment
+    export PATH="/root/miniconda3/bin:${PATH}"
+
+%runscript
+    # Default entry point
+    exec /root/miniconda3/bin/conda run --no-capture-output -n env_jax /bin/bash -c "$@"
+
+%startscript
+    # Start script for the container
+    exec /root/miniconda3/bin/conda run --no-capture-output -n env_jax /bin/bash -c "$@"
+
+%labels
+    Author Talha
+    Version v1.0
+    Description "CUDA-enabled Apptainer image with JAX and dependencies"
