@@ -1,6 +1,6 @@
 # Gilbreth
 
-After following the [instructions for apptainer](../apptainer/README.md), a slurm job (e.g., [jax-job.sub](jax-job.sub)):
+After following the [instructions for apptainer](../apptainer/README.md), a slurm job (e.g., [jax-job.sub](jax-job.sub)) can be submitted as:
 
 ```shell
 #!/bin/bash
